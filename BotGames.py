@@ -1,5 +1,25 @@
 import requests
+import telebot
+from telebot import types
+from io import BytesIO
 
+bot = telebot.TeleBot('5193117811:AAH0hWHVx0kH08sub52IFj2SAdJi1eugY-k')
+
+# -----------------------------------------------------------------------
+activeGames = {}  # Тут будем накапливать все активные игры. У пользователя может быть только одна активная игра
+
+
+def newGame(chatID, newGame):
+    activeGames.update({chatID: newGame})
+    return newGame
+
+
+def getGame(chatID):
+    return activeGames.get(chatID)
+
+
+def stopGame(chatID):
+    activeGames.pop(chatID)
 
 # -----------------------------------------------------------------------
 class Card:
@@ -77,8 +97,9 @@ class Card:
 
 # -----------------------------------------------------------------------
 class Game21:
-    def __init__(self, deck_count=1):
-        new_pack = self.new_pack(deck_count)  # в конструкторе создаём новую пачку из deck_count-колод
+    def __init__(self, deck_count=1, jokers_enabled=False):
+        new_pack = self.new_pack(deck_count,
+                                 jokers_enabled)  # в конструкторе создаём новую пачку из deck_count-колод
         if new_pack is not None:
             self.pack_card = new_pack  # сформированная колода
             self.remaining = new_pack["remaining"],  # количество оставшихся карт в колоде
@@ -88,8 +109,10 @@ class Game21:
             self.status = None  # статус игры, True - игрок выиграл, False - Игрок проиграл, None - Игра продолжается
 
     # ---------------------------------------------------------------------
-    def new_pack(self, deck_count):
-        response = requests.get(f"https://deckofcardsapi.com/api/deck/new/shuffle/?deck_count={deck_count}")
+    def new_pack(self, deck_count, jokers_enabled=False):
+        txtJoker = "&jokers_enabled=true" if jokers_enabled else ""
+        response = requests.get(
+            f"https://deckofcardsapi.com/api/deck/new/shuffle/?deck_count={deck_count}" + txtJoker)
         # создание стопки карт из "deck_count" колод по 52 карты
         if response.status_code != 200:
             return None
@@ -135,6 +158,56 @@ class Game21:
 
         return text_game
 
+
+# -----------------------------------------------------------------------
+def getMediaCards(game21):
+    medias = []
+    for url in game21.arr_cards_URL:
+        medias.append(types.InputMediaPhoto(url))
+    return medias
+
+# -----------------------------------------------------------------------
+def get_ManOrNot(chat_id):
+    global bot
+
+    markup = types.InlineKeyboardMarkup()
+    btn1 = types.InlineKeyboardButton(text="Проверить", url="https://vc.ru/dev/58543-thispersondoesnotexist-sayt-generator-realistichnyh-lic")
+    markup.add(btn1)
+
+    req = requests.get("https://thispersondoesnotexist.com/image", allow_redirects=True)
+    if req.status_code == 200:
+        img = BytesIO(req.content)
+        bot.send_photo(chat_id, photo=img, reply_markup=markup, caption="Этот человек реален?")
+
+# -----------------------------------------------------------------------
+class GameRPS:
+    values = ["Камень", "Ножницы", "Бумага"]
+
+    def __init__(self):
+        self.computerChoice = self.__class__.getRandomChoice()
+
+    def newGame(self):
+        self.computerChoice = self.__class__.getRandomChoice()
+
+    @classmethod
+    def getRandomChoice(cls):
+        lenValues = len(cls.values)
+        import random
+        rndInd = random.randint(0, lenValues-1)
+        return cls.values[rndInd]
+
+    def playerChoice(self, player1Choice):
+        winner = None
+
+        code = player1Choice[0] + self.computerChoice[0]
+        if player1Choice == self.computerChoice:
+            winner = "Ничья!"
+        elif code == "КН" or code == "БК" or code == "НБ":
+            winner = "Игрок выиграл!"
+        else:
+            winner = "Компьютер выиграл!"
+
+        return f"{player1Choice} vs {self.computerChoice} = " + winner
 
 # -----------------------------------------------------------------------
 if __name__ == "__main__":
