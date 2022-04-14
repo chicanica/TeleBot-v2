@@ -7,9 +7,11 @@ import BotGames
 from BotMenu import Menu, Users
 import DZ
 import BotFun
+import TTTGame
 
 bot = telebot.TeleBot('5193117811:AAH0hWHVx0kH08sub52IFj2SAdJi1eugY-k')
 game21 = None
+TTT_LOBBY = TTTGame.TTTLobby()
 
 # -----------------------------------------------------------------------
 # Функция, обрабатывающая команды
@@ -52,10 +54,10 @@ def get_messages(message):
 @bot.message_handler(content_types=['voice'])
 def get_messages(message):
     chat_id = message.chat.id
-    bot.send_message(chat_id, "Это " + message.content_type)
+    result = bot.send_message(chat_id, "Это " + message.content_type)
+    print(result)
 
     voice = message.voice
-    bot.send_message(message.chat.id, voice)
 
 
 # -----------------------------------------------------------------------
@@ -93,6 +95,7 @@ def get_messages(message):
     if message.document.mime_type == "video/mp4":
         bot.send_message(message.chat.id, "This is a GIF!")
 
+
 # -----------------------------------------------------------------------
 # Получение координат от юзера
 @bot.message_handler(content_types=['location'])
@@ -116,6 +119,14 @@ def get_messages(message):
 
 
 # -----------------------------------------------------------------------
+# Обработка кнопок TTTGame
+@bot.callback_query_handler(func=lambda call: True)
+def test_callback(call):
+    if call.data.split(":")[0] == "TTT":
+        TTT_LOBBY.step(call.data, call.from_user.id, call.id)
+
+
+# -----------------------------------------------------------------------
 # Получение сообщений от юзера
 @bot.message_handler(content_types=['text'])
 def get_text_messages(message):
@@ -124,7 +135,7 @@ def get_text_messages(message):
     ms_text = message.text
 
     cur_user = Users.getUser(chat_id)
-    if cur_user == None:
+    if cur_user is None:
         cur_user = Users(chat_id, message.json["from"])
 
     result = goto_menu(chat_id, ms_text)  # попытаемся использовать текст как команду меню, и войти в него
@@ -136,6 +147,10 @@ def get_text_messages(message):
 
         if ms_text == "Помощь":
             send_help(chat_id)
+
+        elif ms_text == "Играть в крестики-нолики":
+            TTT_LOBBY.play(chat_id, message.from_user.username)
+            print(message.from_user.username)
 
         elif ms_text == "Прислать фильм":
             BotFun.send_film(chat_id)
@@ -175,9 +190,9 @@ def get_text_messages(message):
             goto_menu(chat_id, "Выход")
             return
 
-        elif ms_text in BotGames.GameRPS.values:  # реализация игрыы Камень-ножницы-бумага
+        elif ms_text in BotGames.GameRPS.values:  # реализация игры Камень-ножницы-бумага
             gameRSP = BotGames.getGame(chat_id)
-            if gameRSP == None:  # если мы случайно попали в это меню, а объекта с игрой нет
+            if gameRSP is None:  # если мы случайно попали в это меню, а объекта с игрой нет
                 goto_menu(chat_id, "Выход")
                 return
             text_game = gameRSP.playerChoice(ms_text)
