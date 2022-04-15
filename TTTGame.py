@@ -28,6 +28,7 @@ class TTTGame:
         }
         self.update()
 
+    # Обработка ходов игроков, определение очередности игроков
     def step(self, btn_num, chat_id, call_id):
         if (self.isFirstPlayerStep and chat_id == self.user_info['player2']['chat_id']) \
                 or (not self.isFirstPlayerStep and chat_id == self.user_info['player1']['chat_id']):
@@ -51,7 +52,7 @@ class TTTGame:
         self.update()
         self.isWinner()
 
-
+    # Определение выигрышного случая и окончания игры
     def isWinner(self):
 
         if (self.status[1][0] == self.status[1][1] == self.status[1][2] or
@@ -91,6 +92,7 @@ class TTTGame:
             bot.send_message(self.user_info['player1']['chat_id'], "Ничья! Игра окончена.")
             self.isGameOver = True
 
+    # Обновление игрового поля
     def update(self):
         def symbol(i, j):
             if self.status[i][j] is None:
@@ -126,12 +128,12 @@ class TTTGame:
 
 
 # -----------------------------------------------------------------------
-
 class TTTLobby:
     waiting_player = None
     waiting_player_name = None
     activeTTTGames = {}
 
+    # Получает информацию о ходе игрока и передает в экземпляр игры
     def step(self, btn_id, chat_id, call_id):
         game_guid = btn_id.split(':')[1]
         print(game_guid)
@@ -143,6 +145,7 @@ class TTTLobby:
         except KeyError:
             bot.answer_callback_query(call_id, "Эта игра уже окончена")
 
+    #  Создает новый экземпляр игры и перенаправляет туда игроков
     def play(self, chat_id, player):
         if self.waiting_player is None:
             self.waiting_player = chat_id
