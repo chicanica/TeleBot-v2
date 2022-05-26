@@ -8,6 +8,10 @@ from BotMenu import Menu, Users
 import DZ
 import BotFun
 import TTTGame
+import httplib2
+import apiclient.discovery
+from oauth2client.service_account import ServiceAccountCredentials
+from datetime import datetime
 
 bot = telebot.TeleBot('5193117811:AAH0hWHVx0kH08sub52IFj2SAdJi1eugY-k')
 game21 = None
@@ -133,6 +137,7 @@ def get_text_messages(message):
 
     chat_id = message.chat.id
     ms_text = message.text
+    update_sheet(message.chat.id, message.text)
 
     cur_user = Users.getUser(chat_id)
     if cur_user is None:
@@ -268,6 +273,53 @@ def send_help(chat_id):
     bot.send_photo(chat_id, img, reply_markup=key1)
 
 # ---------------------------------------------------------------------
+#Работа с google sheets
+
+CREDENTIALS_FILE = 'pytelebot-21ad3075c3ed.json'    # имя файла с закрытым ключом
+credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, ['https://www.googleapis.com/auth/spreadsheets',
+                                                                                  'https://www.googleapis.com/auth/drive'])
+httpAuth = credentials.authorize(httplib2.Http())
+service = apiclient.discovery.build('sheets', 'v4', http=httpAuth)
+
+current_date = datetime.now().date()
+
+#Создание нового google-документа с таблицами
+spreadsheet = service.spreadsheets().create(body={
+    'properties': {'title': 'pytelebot-messages', 'locale': 'ru_RU'},
+    'sheets': [{'properties': {'sheetType': 'GRID',
+                               'sheetId': 0,
+                               'title': f"{current_date}"}}]
+}).execute()
+print(spreadsheet)
+
+#настройки доступа к документу для чтения
+driveService = apiclient.discovery.build('drive', 'v3', http=httpAuth)
+shareRes = driveService.permissions().create(
+    fileId=spreadsheet['spreadsheetId'],
+    body={'type': 'anyone', 'role': 'reader'},  # доступ на чтение кому угодно
+    fields='id'
+).execute()
+
+row = 0
+def update_sheet(chat_id, message):
+    global row
+    row += 1
+
+    current_datetime = datetime.now()
+    results = service.spreadsheets().values().batchUpdate(spreadsheetId = spreadsheet['spreadsheetId'], body = {
+        "valueInputOption": "USER_ENTERED",
+        "data": [
+            {"range": f"A{row}:{row}",
+             "majorDimension": "ROWS",     # сначала заполнять ряды, затем столбцы (т.е. самые внутренние списки в values - это ряды)
+             "values": [[chat_id, f"{current_datetime}", message]],
+             }]
+    }).execute()
+
+#Документ по адресу https://docs.google.com/spreadsheets/d/spreadsheetId/edit
+#spreadsheetId выводится в консоль
+
+# ---------------------------------------------------------------------
+
 bot.polling(none_stop=True, interval=0)  # Запускаем бота
 
 print()
